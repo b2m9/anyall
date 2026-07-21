@@ -86,6 +86,37 @@ describe("fromRows", () => {
     expect(customers.fromRows(rows, { incomplete: "reject" })).toEqual(customers.fromRows(rows));
   });
 
+  test("explains why each incomplete row cannot form a predicate", () => {
+    expect(
+      customers.fromRows([
+        { field: "retired", operator: "empty" },
+        { field: "name", operator: "equals", value: 42 },
+        { join: "xor", field: "name", operator: "empty" } as never,
+        { not: "yes", field: "name", operator: "empty" } as never,
+      ]),
+    ).toEqual({
+      ok: false,
+      issues: [
+        { code: "incomplete-row", path: [0], message: 'unknown field "retired"' },
+        {
+          code: "incomplete-row",
+          path: [1],
+          message: "equals requires a string value",
+        },
+        {
+          code: "incomplete-row",
+          path: [2],
+          message: 'join must be "and" or "or" when present',
+        },
+        {
+          code: "incomplete-row",
+          path: [3],
+          message: "not must be a boolean when present",
+        },
+      ],
+    });
+  });
+
   test("does not turn a malformed runtime policy into discard mode", () => {
     expect(customers.fromRows([{ field: "name" }], { incomplete: "typo" } as never)).toMatchObject({
       ok: false,

@@ -7,6 +7,10 @@ interface IndexedRow {
   readonly row: FilterRow;
 }
 
+type RowConversion<Name extends string> =
+  | { readonly ok: true; readonly predicate: Predicate<Name> }
+  | { readonly ok: false; readonly message: string };
+
 export function expressionFromRows<R, Name extends string>(
   rows: readonly FilterRow[],
   registry: FieldRegistry<R, Name>,
@@ -18,15 +22,15 @@ export function expressionFromRows<R, Name extends string>(
   for (const slice of segmentRows(rows)) {
     const all: Predicate<Name>[] = [];
     for (const { index, row } of slice) {
-      const predicate = predicateFromRow(row, registry);
-      if (predicate === undefined) {
+      const converted = predicateFromRow(row, registry);
+      if (!converted.ok) {
         issues.push({
           code: "incomplete-row",
           path: [index],
-          message: "row does not form a valid predicate",
+          message: converted.message,
         });
       } else {
-        all.push(predicate);
+        all.push(converted.predicate);
       }
     }
     if (all.length > 0) {
@@ -56,9 +60,16 @@ function segmentRows(rows: readonly FilterRow[]): IndexedRow[][] {
 function predicateFromRow<R, Name extends string>(
   row: FilterRow,
   registry: FieldRegistry<R, Name>,
-): Predicate<Name> | undefined {
-  if (!isObject(row) || !hasValidJoin(row) || !hasValidNot(row)) {
-    return undefined;
+): RowConversion<Name> {
+  if (!isObject(row)) {
+    return { ok: false, message: "row must be an object" };
+  }
+
+  if (row.join !== undefined && row.join !== "and" && row.join !== "or") {
+    return { ok: false, message: 'join must be "and" or "or" when present' };
+  }
+  if (Object.hasOwn(row, "not") && typeof row.not !== "boolean") {
+    return { ok: false, message: "not must be a boolean when present" };
   }
 
   const candidate: Record<string, unknown> = {};
@@ -71,15 +82,13 @@ function predicateFromRow<R, Name extends string>(
 
   // A shared boundary keeps rows and stored data from growing subtly
   // different definitions of a predicate.
-  return validatePredicateInput(candidate, registry);
-}
-
-function hasValidJoin(row: Record<string, unknown>): boolean {
-  return row.join === undefined || row.join === "and" || row.join === "or";
-}
-
-function hasValidNot(row: Record<string, unknown>): boolean {
-  return !Object.hasOwn(row, "not") || typeof row.not === "boolean";
+  const validated = validatePredicateInput(candidate, registry);
+  if (!validated.ok) {
+    // Rows expose one issue by index; combining predicate reasons preserves
+    // that stable cardinality without reducing the message to a generic fault.
+    return { ok: false, message: validated.issues.map((issue) => issue.message).join("; ") };
+  }
+  return { ok: true, predicate: validated.predicate };
 }
 
 function copyOwn(

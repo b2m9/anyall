@@ -57,6 +57,26 @@ The double call is deliberate. TypeScript cannot partially infer type
 arguments: the first call fixes `Customer`, while the second infers the literal
 field names from the registry.
 
+Accessors make record projection visible and type-checked. A field can also
+define the text equivalence its domain needs; normalization always applies to
+both record text and the compiled needle:
+
+```ts
+const places = createFilter<{ city: string }>()({
+  city: {
+    get: (place) => place.city,
+    normalize: (text) => text.trim().toLowerCase().normalize("NFD").replaceAll(/\p{M}/gu, ""),
+  },
+});
+
+const inAarhus = places.compile({
+  v: 1,
+  any: [{ all: [{ field: "city", operator: "equals", value: "Arhus" }] }],
+});
+
+inAarhus({ city: "Århus" }); // true
+```
+
 Now fold the flat rows from a filter UI into an expression:
 
 ```ts
@@ -116,6 +136,8 @@ if (raw === null) {
 } else {
   const restored = customers.parse(raw);
   if (!restored.ok) {
+    // For example, a removed `plan` field is reported at
+    // ["any", 1, "all", 1, "field"] with code "unknown-field".
     showStaleView(restored.issues);
   } else {
     render(customers.filter(records, restored.expression));
@@ -237,8 +259,19 @@ predicate; empty containers are rejected rather than given vacuous meanings.
 - `filter` preserves order and returns its input array by reference exactly
   when no record is excluded; otherwise it returns a fresh array.
 
-There is deliberately no regex, arbitrary nesting, user-defined operator,
-field-path grammar, rendering, table integration, URL state, sorting,
+Expressions carry `v: 1`. A grammar change increments the wire version even
+when package semver would not otherwise require a major release. A future
+reader must either continue accepting every older grammar it supersets or ship
+an explicit migration.
+
+The expression language deliberately has no regex, arbitrary nesting,
+user-defined operators, or field-path grammar. Regex becomes a ReDoS surface
+when expressions are untrusted data. An expression that names executable
+behavior stops being portable and trustable. Recursive boolean trees are the
+problem JSON Logic already solves, while declared accessors avoid a path
+grammar and its prototype-safety policy entirely.
+
+The package also provides no rendering, table integration, URL state, sorting,
 pagination, server adapter, query-language compilation, fuzzy search, numeric
 comparison, or date comparison.
 

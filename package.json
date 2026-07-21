@@ -1,7 +1,7 @@
 {
   "name": "@b2m9/anyall",
   "version": "0.1.0",
-  "description": "Evaluate serializable any-of-all filter expressions over declared record fields.",
+  "description": "Build, store, and evaluate serializable DNF filters over declared record fields.",
   "keywords": [
     "boolean-expression",
     "disjunctive-normal-form",

@@ -26,6 +26,7 @@ version-locked runner.
 
 - **The language stays closed.** Six operators plus the orthogonal `not` flag;
   custom behavior belongs in declared field normalizers, never in expressions.
+  This is a security boundary, not a style preference.
 - **DNF stays fixed-depth.** Do not add recursive groups or left-to-right
   reduction; the two-level shape is the protection against grouping ambiguity.
 - **Fields are declared capabilities.** Expressions select registry names; the
@@ -37,12 +38,39 @@ version-locked runner.
 - **Segment before discarding rows.** An invalid row may be removed in
   interactive mode, but it must never alter the groups around it.
 - **Stored data stays data.** Parsing rebuilds fresh canonical plain objects;
-  evaluation-time normalization never rewrites saved needles.
+  evaluation-time normalization never rewrites saved needles. Token arrays
+  keep their order and duplicates; deduplication exists only in a compiled
+  `one-of` set.
+- **Empty has one meaning.** A value is empty exactly when resolution yields no
+  matchable texts. Every operator and its negation derive boundary behavior
+  from that definition rather than special-casing cells.
 - **Preserve reference no-ops.** `filter` returns its input array when every
   record survives, and returns a fresh array only when something is excluded.
-- **Remain pure and synchronous.** Inputs are never mutated. Accessor and
-  normalizer failures propagate so programmer bugs are not disguised as empty
-  fields.
+- **Remain pure, deterministic, and synchronous.** No clock, locale or `Intl`,
+  global state, or input mutation. Accessor and normalizer failures propagate
+  so programmer bugs are not disguised as empty fields.
+
+## Design principles
+
+The library's value is partly the vocabulary it refuses to grow. Hold these
+boundaries when recurring feature requests appear:
+
+- **Regex operators:** no. They create a ReDoS surface as soon as expressions
+  are untrusted data.
+- **User-defined operators:** no. Data that carries or names code stops being
+  portable, storable, and trustable. Custom behavior is a registry normalizer,
+  versioned with the application.
+- **Nesting:** no. JSON Logic already serves recursive expression trees. Fixed
+  DNF plus per-predicate `not` keeps grouping explicit, at worst with some
+  predicate duplication.
+- **Path strings:** accessors already provide compiler checks without adding a
+  grammar, prototype-safety policy, or getter semantics. If data-driven
+  registries eventually need convenience, a helper that returns an accessor is
+  the v1-compatible direction.
+
+Prefer removing code to adding it. Every option, operator, and public export
+must earn its maintenance cost. Anything that changes the expression grammar
+increments the wire version independently of package semver.
 
 ## Comments
 

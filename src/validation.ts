@@ -22,14 +22,19 @@ interface ValidationContext<R, Name extends string> {
 export function validatePredicateInput<R, Name extends string>(
   input: unknown,
   registry: FieldRegistry<R, Name>,
-): Predicate<Name> | undefined {
+):
+  | { readonly ok: true; readonly predicate: Predicate<Name> }
+  | { readonly ok: false; readonly issues: readonly Issue[] } {
   const context: ValidationContext<R, Name> = {
     registry,
     issues: [],
     captureNeedle: undefined,
   };
   const predicate = validatePredicate(input, [], context);
-  return context.issues.length === 0 ? predicate : undefined;
+  if (context.issues.length > 0 || predicate === undefined) {
+    return { ok: false, issues: context.issues };
+  }
+  return { ok: true, predicate };
 }
 
 export function validateExpression<R, Name extends string>(

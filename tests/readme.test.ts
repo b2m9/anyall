@@ -15,6 +15,13 @@ const customers = createFilter<Customer>()({
   plan: (customer) => customer.plan,
 });
 
+const places = createFilter<{ city: string }>()({
+  city: {
+    get: (place) => place.city,
+    normalize: (text) => text.trim().toLowerCase().normalize("NFD").replaceAll(/\p{M}/gu, ""),
+  },
+});
+
 const rows = [
   { field: "account", operator: "contains", value: "acme" },
   {
@@ -35,6 +42,15 @@ const records: Customer[] = [
 ];
 
 describe("README examples", () => {
+  test("applies a custom normalizer to both record text and the compiled needle", () => {
+    const inAarhus = places.compile({
+      v: 1,
+      any: [{ all: [{ field: "city", operator: "equals", value: "Arhus" }] }],
+    });
+
+    expect(inAarhus({ city: "Århus" })).toBe(true);
+  });
+
   test("groups the four-row bug as any-of-all instead of left to right", () => {
     const built = customers.fromRows(rows);
     if (!built.ok) {
@@ -74,6 +90,21 @@ describe("README examples", () => {
 
     const saved = JSON.stringify(built.expression);
     expect(customers.parse(saved)).toEqual(built);
+
+    const customersWithoutPlan = createFilter<Customer>()({
+      account: (customer) => customer.account?.name,
+      status: (customer) => customer.status,
+      name: (customer) => customer.name,
+    });
+    expect(customersWithoutPlan.parse(saved)).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          code: "unknown-field",
+          path: ["any", 1, "all", 1, "field"],
+        },
+      ],
+    });
 
     const missingStorageKey: string | null = null;
     const savedNoFilter = JSON.stringify(null);
