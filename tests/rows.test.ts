@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { createFilter, type FilterRow } from "../src/index.js";
+import { AnyallConfigError, createFilter, type FilterRow } from "../src/index.js";
 
 interface Customer {
   name: string;
@@ -118,11 +118,10 @@ describe("fromRows", () => {
     });
   });
 
-  test("does not turn a malformed runtime policy into discard mode", () => {
-    expect(customers.fromRows([{ field: "name" }], { incomplete: "typo" } as never)).toMatchObject({
-      ok: false,
-      issues: [{ code: "incomplete-row", path: [0] }],
-    });
+  test("rejects a malformed runtime policy explicitly", () => {
+    expect(() =>
+      customers.fromRows([predicate("name", "A")], { incomplete: "typo" } as never),
+    ).toThrow(AnyallConfigError);
   });
 
   test("emits not only for true", () => {
@@ -173,6 +172,27 @@ describe("fromRows", () => {
     expect(customers.fromRows([inherited])).toEqual({
       ok: true,
       expression: { v: 1, any: [{ all: [{ field: "name", operator: "empty" }] }] },
+    });
+  });
+
+  test("ignores inherited join values", () => {
+    const inheritedOr = Object.assign(Object.create({ join: "or" }) as object, {
+      ...predicate("name", "B"),
+    }) as FilterRow;
+    const inheritedJunk = Object.assign(Object.create({ join: "xor" }) as object, {
+      ...predicate("status", "C"),
+    }) as FilterRow;
+
+    expect(customers.fromRows([predicate("name", "A"), inheritedOr, inheritedJunk])).toEqual({
+      ok: true,
+      expression: {
+        v: 1,
+        any: [
+          {
+            all: [predicate("name", "A"), predicate("name", "B"), predicate("status", "C")],
+          },
+        ],
+      },
     });
   });
 

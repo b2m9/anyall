@@ -1,5 +1,4 @@
 import { AnyallConfigError } from "./errors.js";
-import type { FieldDef } from "./types.js";
 
 export interface RegisteredField<R> {
   readonly get: (record: R) => unknown;
@@ -10,7 +9,7 @@ export type FieldRegistry<R, Name extends string> = ReadonlyMap<Name, Registered
 
 /** Validate and snapshot field callables before expressions can depend on them. */
 export function createFieldRegistry<R, Name extends string>(
-  fields: Readonly<Record<Name, FieldDef<R>>>,
+  fields: unknown,
 ): FieldRegistry<R, Name> {
   if (typeof fields !== "object" || fields === null || Array.isArray(fields)) {
     throw new AnyallConfigError("fields must be an object of named accessors");

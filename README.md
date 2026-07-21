@@ -155,9 +155,9 @@ JSON and ordinary invalid data become issues, provided the declared normalizers
 honor their pure-and-total contract; reflective exotica are outside that
 guarantee. Issues for known fields follow grammar and array order before extra
 keys; extra-key ordering is not normalized. Consumers should branch on `code`
-and `path`, not issue position or message text. An unsupported wire version is
-reported alone because the reader cannot safely judge the rest of a foreign
-grammar.
+and `path`, not issue position or message text. A well-formed unsupported wire
+version is reported alone because the reader cannot safely judge the rest of a
+foreign grammar.
 
 ## API
 
@@ -257,8 +257,9 @@ predicate; empty containers are rejected rather than given vacuous meanings.
 - Accessors and normalizers must be pure and total, and normalizers must return
   strings. Their errors propagate; a non-string result throws
   `AnyallConfigError` rather than becoming a matchable value.
-- V1 is text-only. There are no numeric or date comparisons, and numbers are
-  matched as strings: `contains "4"` matches `42`.
+- V1 is text-only. There are no numeric or date comparisons. Numbers use
+  JavaScript's `String` representation, so `contains "4"` matches `42`; project
+  a formatted string when notation matters.
 - Lowercasing is deterministic, not locale-aware collation. Supply a custom
   normalizer when your domain needs another text equivalence.
 - Objects never coerce to `"[object Object]"`. Project a label or identifier in

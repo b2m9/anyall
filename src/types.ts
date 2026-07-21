@@ -95,7 +95,8 @@ export interface Filter<R, Name extends string> {
   /**
    * Segments flat UI rows at each `join: "or"`, then validates within those
    * groups. Incomplete rows reject by default; `"discard"` removes them only
-   * after grouping. Zero surviving groups produce the no-filter value `null`.
+   * after grouping. Zero surviving groups produce the no-filter value `null`;
+   * malformed options throw `AnyallConfigError`.
    */
   fromRows(
     rows: readonly FilterRow[],
@@ -120,6 +121,7 @@ export interface Filter<R, Name extends string> {
    * Restores JSON text or an already-parsed value. A string is always treated
    * as JSON text. Success returns fresh canonical data; ordinary invalid input
    * returns structured issues, and `null` is the valid no-filter value.
+   * Normalizer failures and configuration contract violations propagate.
    */
   parse(input: unknown): ExpressionResult<Name>;
 }

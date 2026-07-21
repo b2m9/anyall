@@ -1,3 +1,4 @@
+import { AnyallConfigError } from "./errors.js";
 import type { FieldRegistry } from "./fields.js";
 import type { ExpressionResult, FilterRow, Issue, Predicate } from "./types.js";
 import { validatePredicateInput } from "./validation.js";
@@ -16,6 +17,10 @@ export function expressionFromRows<R, Name extends string>(
   registry: FieldRegistry<R, Name>,
   incomplete: "reject" | "discard" = "reject",
 ): ExpressionResult<Name> {
+  if (incomplete !== "reject" && incomplete !== "discard") {
+    throw new AnyallConfigError('incomplete must be "reject" or "discard"');
+  }
+
   const issues: Issue[] = [];
   const any: Array<{ readonly all: readonly Predicate<Name>[] }> = [];
 
@@ -51,7 +56,7 @@ function segmentRows(rows: readonly FilterRow[]): IndexedRow[][] {
   Array.from(rows).forEach((row, index) => {
     // Boundaries come from the authored sequence, so later discards cannot
     // silently move a predicate into a different boolean group.
-    if (index > 0 && isObject(row) && row.join === "or") {
+    if (index > 0 && isObject(row) && Object.hasOwn(row, "join") && row.join === "or") {
       slices.push([]);
     }
     slices[slices.length - 1]!.push({ index, row });
@@ -67,7 +72,12 @@ function predicateFromRow<R, Name extends string>(
     return { ok: false, message: "row must be an object" };
   }
 
-  if (row.join !== undefined && row.join !== "and" && row.join !== "or") {
+  if (
+    Object.hasOwn(row, "join") &&
+    row.join !== undefined &&
+    row.join !== "and" &&
+    row.join !== "or"
+  ) {
     return { ok: false, message: 'join must be "and" or "or" when present' };
   }
   if (Object.hasOwn(row, "not") && row.not !== undefined && typeof row.not !== "boolean") {

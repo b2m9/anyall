@@ -36,8 +36,9 @@ version-locked runner.
   empty groups are invalid rather than acquiring vacuous truth values.
 - **Validation has one source of truth.** `parse`, `compile`, and row conversion
   must not drift into subtly different definitions of a valid predicate.
-- **Foreign versions stop validation.** A reader cannot make useful claims
-  about a grammar it does not understand; report only `unsupported-version`.
+- **Well-formed foreign versions stop validation.** A reader cannot make useful
+  claims about a positive-integer grammar version it does not understand;
+  malformed versions are V1 shape issues, not `unsupported-version`.
 - **Segment before discarding rows.** An invalid row may be removed in
   interactive mode, but it must never alter the groups around it.
 - **Stored data stays data.** Parsing rebuilds fresh canonical plain objects;

@@ -132,6 +132,19 @@ describe("parse", () => {
     });
   });
 
+  test.each([null, "1", 0, true, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "reports malformed version %# as an invalid shape",
+    (version) => {
+      expect(customers.parse({ v: version, any: "junk" })).toMatchObject({
+        ok: false,
+        issues: [
+          { code: "invalid-shape", path: ["v"] },
+          { code: "invalid-shape", path: ["any"] },
+        ],
+      });
+    },
+  );
+
   test("treats undefined predicate properties as absent", () => {
     expect(
       customers.parse({

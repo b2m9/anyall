@@ -34,6 +34,29 @@ const customers = createFilter<Customer>()(customerFields);
 const typedFilter: Filter<Customer, keyof typeof customerFields> = customers;
 void typedFilter;
 
+const numberedFields = createFilter<Customer>()({ 0: (customer) => customer.name });
+const numberedFilter: Filter<Customer, "0"> = numberedFields;
+void numberedFilter;
+numberedFields.compile({
+  v: 1,
+  any: [{ all: [{ field: "0", operator: "equals", value: "Ada" }] }],
+});
+numberedFields.compile({
+  v: 1,
+  any: [
+    {
+      all: [
+        {
+          // @ts-expect-error numeric field keys become their runtime string form
+          field: "1",
+          operator: "equals",
+          value: "Ada",
+        },
+      ],
+    },
+  ],
+});
+
 const expression: Expression<"name" | "status"> = {
   v: 1,
   any: [

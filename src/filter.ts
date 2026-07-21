@@ -5,15 +5,18 @@ import type { FieldRegistry } from "./fields.js";
 import { expressionFromRows } from "./rows.js";
 import type { FieldDef, Filter } from "./types.js";
 
+// Object keys reach the runtime registry in their string form.
+type StringKeyOf<T> = `${Extract<keyof T, string | number>}`;
+
 /**
  * Bind an explicit record type first so the field map can still infer its
  * literal names; TypeScript cannot partially infer one generic call.
  */
 export function createFilter<R>(): <F extends Record<string, FieldDef<R>>>(
   fields: F,
-) => Filter<R, keyof F & string> {
-  return <F extends Record<string, FieldDef<R>>>(fields: F): Filter<R, keyof F & string> => {
-    const registry = createFieldRegistry<R, keyof F & string>(fields);
+) => Filter<R, StringKeyOf<F>> {
+  return <F extends Record<string, FieldDef<R>>>(fields: F): Filter<R, StringKeyOf<F>> => {
+    const registry = createFieldRegistry<R, StringKeyOf<F>>(fields);
     return createBoundFilter(registry);
   };
 }

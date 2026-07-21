@@ -62,31 +62,35 @@ function validateRoot<R, Name extends string>(
     return undefined;
   }
 
-  if (!Object.hasOwn(input, "v") || input.v === undefined) {
+  const version = Object.hasOwn(input, "v") ? input.v : undefined;
+  if (version === undefined) {
     addIssue(context, "invalid-shape", ["v"], "version is required");
-  } else if (input.v !== 1) {
+  } else if (typeof version !== "number" || !Number.isSafeInteger(version) || version < 1) {
+    addIssue(context, "invalid-shape", ["v"], "version must be a positive safe integer");
+  } else if (version !== 1) {
     addIssue(context, "unsupported-version", ["v"], "only expression version 1 is supported");
     // A foreign version names a foreign grammar, so deeper judgments would be
     // guesses rather than actionable validation.
     return undefined;
   }
 
+  const anyInput = Object.hasOwn(input, "any") ? input.any : undefined;
   let any: Array<{ readonly all: readonly Predicate<Name>[] } | undefined> | undefined;
-  if (!Object.hasOwn(input, "any")) {
+  if (anyInput === undefined) {
     addIssue(context, "invalid-shape", ["any"], "any is required");
-  } else if (!Array.isArray(input.any)) {
+  } else if (!Array.isArray(anyInput)) {
     addIssue(context, "invalid-shape", ["any"], "any must be an array");
-  } else if (input.any.length === 0) {
+  } else if (anyInput.length === 0) {
     addIssue(context, "empty-expression", ["any"], "an expression must contain a group");
     any = [];
   } else {
     // Array.from both visits holes and refuses an input subclass's species.
-    any = Array.from(input.any, (group, index) => validateGroup(group, ["any", index], context));
+    any = Array.from(anyInput, (group, index) => validateGroup(group, ["any", index], context));
   }
 
   rejectUnknownKeys(input, new Set(["v", "any"]), [], context);
 
-  if (input.v !== 1 || any === undefined || any.some((group) => group === undefined)) {
+  if (version !== 1 || any === undefined || any.some((group) => group === undefined)) {
     return undefined;
   }
   return { v: 1, any: any as Array<{ readonly all: readonly Predicate<Name>[] }> };
