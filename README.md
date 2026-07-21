@@ -1,4 +1,14 @@
-# @b2m9/anyall
+# anyall
+
+Build, store, and evaluate serializable text filters over declared record fields.
+
+`@b2m9/anyall` turns flat filter-builder rows into explicit `any`-of-`all`
+expressions, validates saved views, and compiles them into predicates over
+in-memory records.
+
+Headless · TypeScript · ESM-only · Zero runtime dependencies · Node.js 22+
+
+## Why grouping matters
 
 Four filter rows can hide a boolean bug:
 
@@ -18,10 +28,7 @@ an open Acme customer on the basic plan. The rows mean `(A AND B) OR (C AND D)`:
 | Test Labs, closed, pro    | yes           | **yes**  |
 | Test Garage, closed, free | no            | no       |
 
-`anyall` evaluates serializable text filters in that fixed shape: any group may
-match, and all predicates in a matching group must match. It is headless,
-ESM-only, has zero runtime dependencies, and does not inspect record structure
-beyond the accessors you declare.
+`anyall` makes that grouping explicit instead of relying on reduction order.
 
 ## Install
 
@@ -29,9 +36,7 @@ beyond the accessors you declare.
 npm install @b2m9/anyall
 ```
 
-Node.js 22 or newer is required.
-
-## Usage
+## Quick start
 
 Declare the fields an expression is allowed to address:
 
@@ -53,11 +58,7 @@ const customers = createFilter<Customer>()({
 });
 ```
 
-The double call is deliberate. TypeScript cannot partially infer type
-arguments: the first call fixes `Customer`, while the second infers the literal
-field names from the registry.
-
-Now fold the flat rows from a filter UI into an expression:
+Convert flat rows from a filter UI, then apply the resulting expression:
 
 ```ts
 const rows = [
@@ -82,11 +83,18 @@ const records: Customer[] = [
   { account: { name: "Other" }, status: "closed", name: "Test Garage", plan: "free" },
 ];
 
-const matches = customers.filter(records, built.expression);
-// [records[0], records[1]]
+const filtered = customers.filter(records, built.expression);
+filtered.map((customer) => customer.name);
+// ["Alice", "Test Labs"]
 ```
 
-The expression is versioned plain data:
+The double call to `createFilter` is deliberate. TypeScript cannot partially
+infer type arguments: the first call fixes `Customer`, while the second infers
+the literal field names from the registry.
+
+## Expression model
+
+The rows above produce versioned plain data:
 
 ```text
 {
@@ -98,14 +106,34 @@ The expression is versioned plain data:
 }
 ```
 
-Evaluation is exactly `any.some(group => group.all.every(predicate))`.
-There is no recursive tree and no ambiguous reduction order.
+Evaluation is exactly:
 
-### Custom normalization
+```ts
+expression.any.some((group) => group.all.every((predicate) => matches(predicate)));
+```
+
+Any group may match, while every predicate in a matching group must match. This
+shape is disjunctive normal form, or DNF. There is no recursive tree and no
+ambiguous reduction order.
+
+Expressions require at least one group, and every group requires at least one
+predicate. Empty containers are rejected rather than given vacuous meanings.
+`null` is the explicit no-filter value.
+
+## Choose an entry point
+
+| Starting with                        | Use        | Result                             |
+| ------------------------------------ | ---------- | ---------------------------------- |
+| Flat state from a filter UI          | `fromRows` | Validated expression or issues     |
+| Stored JSON or another unknown value | `parse`    | Validated expression or issues     |
+| An expression used repeatedly        | `compile`  | Reusable `(record) => boolean`     |
+| Records and a one-off expression     | `filter`   | Filtered records in original order |
+
+## Field registry and normalization
 
 Accessors make record projection visible and type-checked. A field can also
-define the text equivalence its domain needs; normalization always applies to
-both record text and the compiled search text, or needle:
+define the text equivalence its domain needs. Normalization applies to both
+record text and the compiled search text, or needle:
 
 ```ts
 const places = createFilter<{ city: string }>()({
@@ -123,8 +151,8 @@ const inAarhus = places.compile({
 inAarhus({ city: "Århus" }); // true
 ```
 
-Field-definition objects accept only `get` and `normalize` as string keys;
-unknown string keys are configuration errors rather than ignored metadata.
+Field-definition objects accept only `get` and `normalize` as string keys.
+Unknown string keys are configuration errors rather than ignored metadata.
 
 ## Saved views
 
@@ -154,46 +182,66 @@ A missing storage key and a stored no-filter state are different. Store the
 latter as `JSON.stringify(null)`, which yields the JSON text `"null"`;
 `customers.parse("null")` succeeds with `expression: null`.
 
-`parse` accepts JSON text or an already-parsed inert value. On success it
-returns fresh canonical plain objects while preserving needle text. Invalid
-JSON and ordinary invalid data become issues, provided the declared normalizers
-honor their pure-and-total contract; reflective exotica are outside that
-guarantee. Issues for known fields follow grammar and array order before extra
-keys; extra-key ordering is not normalized. Consumers should branch on `code`
-and `path`, not issue position or message text. A well-formed unsupported wire
-version is reported alone because the reader cannot safely judge the rest of a
-foreign grammar.
+`parse` provides these boundary guarantees for ordinary inert data:
 
-## API
+- JSON syntax and expression shape failures become structured issues.
+- Success returns fresh plain objects without aliasing caller input.
+- Raw needle text, token order, and duplicate tokens are preserved.
+- Known grammar fields are reported in grammar and array order before extra
+  keys; ordering among extra keys is not normalized.
+- A well-formed unsupported wire version is reported alone because the reader
+  cannot safely judge the rest of a foreign grammar.
 
-```text
-const filter = createFilter<RecordType>()({
-  fieldName: (record) => record.value,
-  normalizedField: {
-    get: (record) => record.otherValue,
-    normalize: (text) => text.trim().toLowerCase(),
-  },
-});
+Consumers should branch on issue `code` and `path`, not position or message
+text.
 
+## API reference
+
+### `createFilter<RecordType>()(fields)`
+
+Creates a filter bound to a declared field registry. Each field is either an
+accessor or `{ get, normalize }`; field names are inferred as string literals.
+Malformed field definitions throw `AnyallConfigError`.
+
+### `filter.fromRows(rows, options?)`
+
+```ts
 filter.fromRows(rows, { incomplete: "reject" });
-filter.compile(expression); // (record) => boolean
-filter.filter(records, expression); // readonly RecordType[]
-filter.parse(jsonOrValue);
 ```
 
-`filter` validates and compiles its expression on every call. When evaluating
-the same expression repeatedly, call `compile` once and reuse the predicate.
+Segments flat UI rows, validates their predicates, and returns
+`ExpressionResult`. Incomplete rows reject the conversion by default;
+`{ incomplete: "discard" }` is intended for transient filter-drawer state.
+Malformed options throw `AnyallConfigError`.
 
-`fromRows` and `parse` return one result shape:
+### `filter.parse(jsonOrValue)`
+
+Accepts JSON text or an already-parsed value and returns `ExpressionResult`.
+A string is always treated as JSON text. `null` is accepted as no filter.
+Configuration failures and errors thrown by declared normalizers propagate.
+
+### `filter.compile(expression)`
+
+Validates an expression and returns a reusable `(record) => boolean` predicate.
+`compile(null)` returns a predicate that always passes. Invalid asserted input
+throws `AnyallExpressionError` with the same issues that `parse` reports.
+
+### `filter.filter(records, expression)`
+
+Validates and compiles the expression on every call, then filters without
+reordering records. It returns the input array by reference exactly when no
+record is excluded; otherwise it returns a fresh array. Compile once and reuse
+the predicate when evaluating the same expression repeatedly.
+
+### Results, errors, and types
+
+`fromRows` and `parse` share one result shape:
 
 ```ts
 type ExpressionResult<Name extends string> =
   | { ok: true; expression: Expression<Name> | null }
   | { ok: false; issues: readonly Issue[] };
 ```
-
-`null` is the explicit no-filter value. `compile(null)` returns a predicate
-that always passes, and `filter(records, null)` returns `records` itself.
 
 Malformed configuration throws `AnyallConfigError`. Passing an asserted but
 invalid expression to `compile` or `filter` throws `AnyallExpressionError` with
@@ -242,9 +290,9 @@ resolved only one level deep.
 
 `fromRows` segments the complete row sequence at each non-leading
 `join: "or"`, then validates rows within those groups. The first row's join is
-ignored because there is no preceding group to separate. This order is
-load-bearing: discarding an invalid row must not pull later predicates into an
-earlier group.
+ignored because there is no preceding group to separate. Segmentation happens
+before validation so discarding an invalid row cannot pull later predicates
+into an earlier group.
 
 Incomplete rows reject the whole conversion by default. For a live filter
 drawer, `{ incomplete: "discard" }` removes invalid rows after grouping, drops
@@ -254,10 +302,7 @@ string array. An explicit `undefined` behaves like an omitted property; required
 properties remain invalid when omitted. Record values are the only values
 coerced to text.
 
-Expressions require at least one group and every group requires at least one
-predicate; empty containers are rejected rather than given vacuous meanings.
-
-## Guardrails
+## Operational guardrails
 
 - Field names and their meaning are a saved-view contract. When renaming a
   field, keep the old name as an alias; changing an accessor or normalizer can
@@ -265,9 +310,8 @@ predicate; empty containers are rejected rather than given vacuous meanings.
 - Accessors and normalizers must be pure and total, and normalizers must return
   strings. Their errors propagate; a non-string result throws
   `AnyallConfigError` rather than becoming a matchable value.
-- V1 is text-only. There are no numeric or date comparisons. Numbers use
-  JavaScript's `String` representation, so `contains "4"` matches `42`; project
-  a formatted string when notation matters.
+- V1 is text-only. Numbers use JavaScript's `String` representation, so
+  `contains "4"` matches `42`; project a formatted string when notation matters.
 - Lowercasing is deterministic, not locale-aware collation. Supply a custom
   normalizer when your domain needs another text equivalence.
 - Objects never coerce to `"[object Object]"`. Project a label or identifier in
@@ -275,20 +319,22 @@ predicate; empty containers are rejected rather than given vacuous meanings.
 - Expressions cannot introduce code or access undeclared fields, but that
   bounds capability, not work. Cap bytes, groups, predicates, tokens, and
   needle lengths before parsing untrusted input.
-- `filter` preserves order and returns its input array by reference exactly
-  when no record is excluded; otherwise it returns a fresh array.
+- Proxies, stateful getters, and similar reflective inputs can execute caller
+  code and are outside `parse`'s issues-only guarantee.
 
 Expressions carry `v: 1`. A grammar change increments the wire version even
 when package semver would not otherwise require a major release. A future
 reader must either continue accepting every older grammar it supersets or ship
 an explicit migration.
 
-The expression language deliberately has no regex, arbitrary nesting,
-user-defined operators, or field-path grammar. Regex becomes a ReDoS surface
-when expressions are untrusted data. An expression that names executable
-behavior stops being portable and trustable. Recursive boolean trees are the
-problem JSON Logic already solves, while declared accessors avoid a path
-grammar and its prototype-safety policy entirely.
+## Deliberate limits
+
+The expression language has no regex, arbitrary nesting, user-defined
+operators, or field-path grammar. Regex becomes a ReDoS surface when
+expressions are untrusted data. An expression that names executable behavior
+stops being portable and trustable. Recursive boolean trees are the problem
+JSON Logic already solves, while declared accessors avoid a path grammar and
+its prototype-safety policy entirely.
 
 The package also provides no rendering, table integration, URL state, sorting,
 pagination, server adapter, query-language compilation, fuzzy search, numeric
