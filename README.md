@@ -57,26 +57,6 @@ The double call is deliberate. TypeScript cannot partially infer type
 arguments: the first call fixes `Customer`, while the second infers the literal
 field names from the registry.
 
-Accessors make record projection visible and type-checked. A field can also
-define the text equivalence its domain needs; normalization always applies to
-both record text and the compiled search text, or needle:
-
-```ts
-const places = createFilter<{ city: string }>()({
-  city: {
-    get: (place) => place.city,
-    normalize: (text) => text.trim().toLowerCase().normalize("NFD").replaceAll(/\p{M}/gu, ""),
-  },
-});
-
-const inAarhus = places.compile({
-  v: 1,
-  any: [{ all: [{ field: "city", operator: "equals", value: "Arhus" }] }],
-});
-
-inAarhus({ city: "Århus" }); // true
-```
-
 Now fold the flat rows from a filter UI into an expression:
 
 ```ts
@@ -120,6 +100,31 @@ The expression is versioned plain data:
 
 Evaluation is exactly `any.some(group => group.all.every(predicate))`.
 There is no recursive tree and no ambiguous reduction order.
+
+### Custom normalization
+
+Accessors make record projection visible and type-checked. A field can also
+define the text equivalence its domain needs; normalization always applies to
+both record text and the compiled search text, or needle:
+
+```ts
+const places = createFilter<{ city: string }>()({
+  city: {
+    get: (place) => place.city,
+    normalize: (text) => text.trim().toLowerCase().normalize("NFD").replaceAll(/\p{M}/gu, ""),
+  },
+});
+
+const inAarhus = places.compile({
+  v: 1,
+  any: [{ all: [{ field: "city", operator: "equals", value: "Arhus" }] }],
+});
+
+inAarhus({ city: "Århus" }); // true
+```
+
+Field-definition objects accept only `get` and `normalize` as string keys;
+unknown string keys are configuration errors rather than ignored metadata.
 
 ## Saved views
 
@@ -212,7 +217,8 @@ Values resolve to a list of matchable texts before an operator runs:
 | nested array element             | none                                    |
 
 The default normalizer trims and lowercases. A field is empty when resolution
-yields no matchable text, including `""`, whitespace, `[]`, and `["", null]`.
+yields no matchable text. With the default normalizer, this includes `""`,
+whitespace, `[]`, and `["", null]`.
 
 | Operator      | Base result                                  | Empty field |
 | ------------- | -------------------------------------------- | ----------- |
@@ -234,9 +240,11 @@ resolved only one level deep.
 
 ## Rows and grouping
 
-`fromRows` segments the complete row sequence at each `join: "or"`, then
-validates rows within those groups. This order is load-bearing: discarding an
-invalid row must not pull later predicates into an earlier group.
+`fromRows` segments the complete row sequence at each non-leading
+`join: "or"`, then validates rows within those groups. The first row's join is
+ignored because there is no preceding group to separate. This order is
+load-bearing: discarding an invalid row must not pull later predicates into an
+earlier group.
 
 Incomplete rows reject the whole conversion by default. For a live filter
 drawer, `{ incomplete: "discard" }` removes invalid rows after grouping, drops

@@ -44,6 +44,11 @@ describe("field configuration", () => {
     ["an object without get", {}],
     ["a non-function get", { get: "name" }],
     ["a non-function normalizer", { get: (customer: Customer) => customer.name, normalize: true }],
+    [
+      "a misspelled normalizer",
+      { get: (customer: Customer) => customer.name, normalise: (text: string) => text },
+    ],
+    ["extra metadata", { get: (customer: Customer) => customer.name, description: "Name" }],
   ])("rejects %s as a field definition", (_case, definition) => {
     expect(() => configure({ name: definition } as never)).toThrow(AnyallConfigError);
   });

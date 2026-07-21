@@ -1,6 +1,7 @@
 /**
- * A declared record capability: an accessor function, or an object when the
- * field also needs domain-specific text normalization.
+ * A declared record capability: an accessor function, or an object with `get`
+ * and optional `normalize` when the field needs domain-specific text
+ * normalization. Other own string keys are rejected.
  */
 export type FieldDef<R> =
   | ((record: R) => unknown)
@@ -57,7 +58,7 @@ export interface Expression<Name extends string = string> {
 
 /** Deliberately loose UI state; conversion is the validation boundary. */
 export interface FilterRow {
-  /** Starts a new group only when literally `"or"`. */
+  /** Starts a new group only when literally `"or"`; ignored on the first row. */
   readonly join?: "and" | "or";
   /** `true` negates the predicate; `false` and absence do not. */
   readonly not?: boolean;
@@ -93,10 +94,11 @@ export type ExpressionResult<Name extends string> =
 /** A filter surface bound to one declared record capability registry. */
 export interface Filter<R, Name extends string> {
   /**
-   * Segments flat UI rows at each `join: "or"`, then validates within those
-   * groups. Incomplete rows reject by default; `"discard"` removes them only
-   * after grouping. Zero surviving groups produce the no-filter value `null`;
-   * malformed options throw `AnyallConfigError`.
+   * Segments flat UI rows at each non-leading `join: "or"`, then validates
+   * within those groups. The first row's join is ignored. Incomplete rows reject
+   * by default; `"discard"` removes them only after grouping. Zero surviving
+   * groups produce the no-filter value `null`; malformed options throw
+   * `AnyallConfigError`.
    */
   fromRows(
     rows: readonly FilterRow[],

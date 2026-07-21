@@ -21,14 +21,17 @@ const customerFields = {
     get: (customer: Customer) => customer.status,
     normalize: (text: string) => text.trim(),
   },
-  structuralMetadataIsAllowed: {
-    get: (customer: Customer) => customer.name,
-    description: "TypeScript object types are structural",
-  },
 };
 
 const fieldDefinition: FieldDef<Customer> = customerFields.name;
 void fieldDefinition;
+
+const fieldWithUnknownKey: FieldDef<Customer> = {
+  get: (customer) => customer.name,
+  // @ts-expect-error field-definition metadata belongs outside the filter registry
+  description: "Name",
+};
+void fieldWithUnknownKey;
 
 const customers = createFilter<Customer>()(customerFields);
 const typedFilter: Filter<Customer, keyof typeof customerFields> = customers;

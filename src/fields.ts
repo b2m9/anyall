@@ -37,6 +37,12 @@ function registerField<R>(name: string, definition: unknown): RegisteredField<R>
   }
 
   const candidate = definition as { get?: unknown; normalize?: unknown };
+  // Ignored configuration turns misspellings into silently different filters.
+  for (const key of Object.getOwnPropertyNames(candidate)) {
+    if (key !== "get" && key !== "normalize") {
+      throw invalidField(name, `has unknown key ${JSON.stringify(key)}`);
+    }
+  }
   if (typeof candidate.get !== "function") {
     throw invalidField(name, "get must be a function");
   }

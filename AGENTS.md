@@ -31,7 +31,9 @@ version-locked runner.
 - **DNF stays fixed-depth.** Do not add recursive groups or left-to-right
   reduction; the two-level shape is the protection against grouping ambiguity.
 - **Fields are declared capabilities.** Expressions select registry names; the
-  package does not parse paths or inspect record structure itself.
+  package does not parse paths or inspect record structure itself. Definition
+  objects reject string keys beyond `get` and `normalize`; ignored keys would
+  hide typos.
 - **No-filter is explicit.** `null` matches everything. Empty expressions and
   empty groups are invalid rather than acquiring vacuous truth values.
 - **Validation has one source of truth.** `parse`, `compile`, and row conversion
@@ -40,7 +42,8 @@ version-locked runner.
   claims about a positive-integer grammar version it does not understand;
   malformed versions are V1 shape issues, not `unsupported-version`.
 - **Segment before discarding rows.** An invalid row may be removed in
-  interactive mode, but it must never alter the groups around it.
+  interactive mode, but it must never alter the groups around it. A leading
+  join is ignored because it cannot separate two groups.
 - **Stored data stays data.** Parsing rebuilds fresh canonical plain objects;
   evaluation-time normalization never rewrites saved needles. Token arrays
   keep their order and duplicates; deduplication exists only in a compiled
