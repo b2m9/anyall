@@ -8,8 +8,9 @@ export type FieldDef<R> =
       /** Reads the field value from a record. Must be pure and total. */
       readonly get: (record: R) => unknown;
       /**
-       * Applied to record texts and needles at evaluation time. Must be pure
-       * and total; defaults to trimming and lowercasing.
+       * Applied to needles during validation and compilation, and to record
+       * texts during evaluation. Must be pure and total; defaults to trimming
+       * and lowercasing.
        */
       readonly normalize?: (text: string) => string;
     };

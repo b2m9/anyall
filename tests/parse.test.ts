@@ -104,7 +104,7 @@ describe("parse", () => {
     expect(result.issues).toHaveLength(1);
   });
 
-  test("reports reachable issues in grammar order, independent of object key order", () => {
+  test("reports grammar issues before extras regardless of source key order", () => {
     for (const input of [
       { extra: true, any: [] },
       { any: [], extra: true },

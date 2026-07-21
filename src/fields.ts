@@ -49,7 +49,20 @@ function registerField<R>(name: string, definition: unknown): RegisteredField<R>
   if (candidate.normalize === undefined) {
     return { get, normalize: defaultNormalize };
   }
-  return { get, normalize: candidate.normalize as (text: string) => string };
+
+  const normalize = candidate.normalize as (text: string) => unknown;
+  return {
+    get,
+    normalize: (text) => {
+      const normalized = normalize(text);
+      // A shared non-string result can make unrelated values compare equal or
+      // fail later inside a string operator.
+      if (typeof normalized !== "string") {
+        throw invalidField(name, "normalize must return a string");
+      }
+      return normalized;
+    },
+  };
 }
 
 function defaultNormalize(text: string): string {

@@ -57,4 +57,28 @@ describe("field configuration", () => {
       expect(error).toMatchObject({ name: "AnyallConfigError" });
     }
   });
+
+  test("rejects non-string normalizer results when they are observed", () => {
+    const invalidNeedle = configure({
+      name: {
+        get: (customer) => customer.name,
+        normalize: (() => undefined) as never,
+      },
+    });
+    const expression = {
+      v: 1 as const,
+      any: [{ all: [{ field: "name" as const, operator: "equals" as const, value: "needle" }] }],
+    };
+
+    expect(() => invalidNeedle.compile(expression)).toThrow(AnyallConfigError);
+
+    const invalidRecord = configure({
+      name: {
+        get: (customer) => customer.name,
+        normalize: ((text: string) => (text === "needle" ? text : undefined)) as never,
+      },
+    }).compile(expression);
+
+    expect(() => invalidRecord({ name: "record" })).toThrow(AnyallConfigError);
+  });
 });

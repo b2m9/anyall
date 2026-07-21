@@ -1,6 +1,6 @@
 import type { Issue } from "./types.js";
 
-/** Thrown by `createFilter` when the field registry cannot form a valid filter. */
+/** Thrown when field registry configuration cannot form a valid filter. */
 export class AnyallConfigError extends Error {
   override readonly name = "AnyallConfigError";
 }

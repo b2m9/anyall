@@ -53,7 +53,8 @@ version-locked runner.
   record survives, and returns a fresh array only when something is excluded.
 - **Remain pure, deterministic, and synchronous.** No clock, locale or `Intl`,
   global state, or input mutation. Accessor and normalizer failures propagate
-  so programmer bugs are not disguised as empty fields.
+  so programmer bugs are not disguised as empty fields; a non-string normalizer
+  result is malformed configuration, never a matchable value.
 
 ## Design principles
 

@@ -44,8 +44,8 @@ export function validateExpression<R, Name extends string>(
   }
 
   const context: ValidationContext<R, Name> = { registry, issues: [] };
-  // Validators append in grammar order, so object key insertion order cannot
-  // rearrange diagnostics.
+  // Known fields are judged in grammar order before extras, keeping actionable
+  // diagnostics stable without sorting caller-owned keys.
   const expression = validateRoot(input, context);
   if (context.issues.length > 0 || expression === undefined) {
     return { ok: false, issues: context.issues };

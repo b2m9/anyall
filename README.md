@@ -153,10 +153,11 @@ latter as `JSON.stringify(null)`, which yields the JSON text `"null"`;
 returns fresh canonical plain objects while preserving needle text. Invalid
 JSON and ordinary invalid data become issues, provided the declared normalizers
 honor their pure-and-total contract; reflective exotica are outside that
-guarantee. Issues follow grammar and array order rather than object key
-insertion order. Consumers should branch on `code` and `path`, not issue
-position or message text. An unsupported wire version is reported alone because
-the reader cannot safely judge the rest of a foreign grammar.
+guarantee. Issues for known fields follow grammar and array order before extra
+keys; extra-key ordering is not normalized. Consumers should branch on `code`
+and `path`, not issue position or message text. An unsupported wire version is
+reported alone because the reader cannot safely judge the rest of a foreign
+grammar.
 
 ## API
 
@@ -253,8 +254,9 @@ predicate; empty containers are rejected rather than given vacuous meanings.
 - Field names and their meaning are a saved-view contract. When renaming a
   field, keep the old name as an alias; changing an accessor or normalizer can
   silently change what existing views match.
-- Accessors and normalizers must be pure and total. Their errors propagate so
-  programmer bugs are not disguised as empty fields.
+- Accessors and normalizers must be pure and total, and normalizers must return
+  strings. Their errors propagate; a non-string result throws
+  `AnyallConfigError` rather than becoming a matchable value.
 - V1 is text-only. There are no numeric or date comparisons, and numbers are
   matched as strings: `contains "4"` matches `42`.
 - Lowercasing is deterministic, not locale-aware collation. Supply a custom
