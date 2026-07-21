@@ -91,6 +91,19 @@ const resolutionCases: readonly ResolutionCase[] = [
     isEmpty: false,
   },
   {
+    label: "zero",
+    value: 0,
+    needles: {
+      equals: "0",
+      contains: "0",
+      "starts-with": "0",
+      "ends-with": "0",
+      "one-of": ["1", "0"],
+    },
+    matchesValueOperators: true,
+    isEmpty: false,
+  },
+  {
     label: "a boolean",
     value: true,
     needles: {
@@ -99,6 +112,19 @@ const resolutionCases: readonly ResolutionCase[] = [
       "starts-with": "tr",
       "ends-with": "ue",
       "one-of": ["false", "true"],
+    },
+    matchesValueOperators: true,
+    isEmpty: false,
+  },
+  {
+    label: "false",
+    value: false,
+    needles: {
+      equals: "false",
+      contains: "als",
+      "starts-with": "fa",
+      "ends-with": "se",
+      "one-of": ["true", "false"],
     },
     matchesValueOperators: true,
     isEmpty: false,
@@ -239,6 +265,40 @@ describe("compile", () => {
 
     expect(matches({ value: "a-b" })).toBe(true);
     expect(calls.slice(compileCalls.length)).toEqual(["a b", "a-b"]);
+  });
+
+  test("treats values removed by custom normalization as empty", () => {
+    const normalized = createFilter<Box>()({
+      value: {
+        get: (box) => box.value,
+        normalize: (text) => text.replaceAll(/[\s-]/g, "").toLowerCase(),
+      },
+    });
+    const isEmpty = normalized.compile(expression({ field: "value", operator: "empty" }));
+    const isAlpha = normalized.compile(
+      expression({ field: "value", operator: "equals", value: "alpha" }),
+    );
+
+    expect(isEmpty({ value: " - " })).toBe(true);
+    expect(isEmpty({ value: ["--", " "] })).toBe(true);
+    expect(isAlpha({ value: ["--", " alpha "] })).toBe(true);
+  });
+
+  test("owns compiled structure and needles", () => {
+    const tokens = [" Alpha ", "alpha"];
+    const all: Predicate<"value">[] = [{ field: "value", operator: "one-of", value: tokens }];
+    const any = [{ all }];
+    const source: Expression<"value"> = { v: 1, any };
+    const matches = boxes.compile(source);
+    const probes: Box[] = [{ value: "alpha" }, { value: "omega" }];
+
+    const beforeMutation = probes.map(matches);
+    tokens.splice(0, tokens.length, "omega");
+    all.splice(0, all.length, { field: "value", operator: "empty" });
+    any.splice(0, any.length);
+
+    expect(beforeMutation).toEqual([true, false]);
+    expect(probes.map(matches)).toEqual(beforeMutation);
   });
 
   test("uses one-level some semantics without coercing objects", () => {

@@ -236,7 +236,7 @@ describe("fromRows", () => {
       ok: true,
       expression: { v: 1, any: [{ all: [predicate("name", "A")] }] },
     });
-    expect(customers.fromRows([], { incomplete: "discard" })).toEqual({
+    expect(customers.fromRows([])).toEqual({
       ok: true,
       expression: null,
     });
