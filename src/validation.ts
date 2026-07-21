@@ -16,7 +16,6 @@ type Path = ReadonlyArray<string | number>;
 interface ValidationContext<R, Name extends string> {
   readonly registry: FieldRegistry<R, Name>;
   readonly issues: Issue[];
-  readonly captureNeedle: ((needle: string) => void) | undefined;
 }
 
 export function validatePredicateInput<R, Name extends string>(
@@ -28,7 +27,6 @@ export function validatePredicateInput<R, Name extends string>(
   const context: ValidationContext<R, Name> = {
     registry,
     issues: [],
-    captureNeedle: undefined,
   };
   const predicate = validatePredicate(input, [], context);
   if (context.issues.length > 0 || predicate === undefined) {
@@ -40,16 +38,17 @@ export function validatePredicateInput<R, Name extends string>(
 export function validateExpression<R, Name extends string>(
   input: unknown,
   registry: FieldRegistry<R, Name>,
-  captureNeedle?: (needle: string) => void,
 ): ExpressionResult<Name> {
   if (input === null) {
     return { ok: true, expression: null };
   }
 
-  const context: ValidationContext<R, Name> = { registry, issues: [], captureNeedle };
+  const context: ValidationContext<R, Name> = { registry, issues: [] };
+  // Validators append in grammar order, so object key insertion order cannot
+  // rearrange diagnostics.
   const expression = validateRoot(input, context);
   if (context.issues.length > 0 || expression === undefined) {
-    return { ok: false, issues: orderByDocumentPath(input, context.issues) };
+    return { ok: false, issues: context.issues };
   }
   return { ok: true, expression };
 }
@@ -63,10 +62,13 @@ function validateRoot<R, Name extends string>(
     return undefined;
   }
 
-  if (!Object.hasOwn(input, "v")) {
+  if (!Object.hasOwn(input, "v") || input.v === undefined) {
     addIssue(context, "invalid-shape", ["v"], "version is required");
   } else if (input.v !== 1) {
     addIssue(context, "unsupported-version", ["v"], "only expression version 1 is supported");
+    // A foreign version names a foreign grammar, so deeper judgments would be
+    // guesses rather than actionable validation.
+    return undefined;
   }
 
   let any: Array<{ readonly all: readonly Predicate<Name>[] } | undefined> | undefined;
@@ -236,10 +238,7 @@ function validateValue<R, Name extends string>(
       addIssue(context, "invalid-value", valuePath, `${operator} requires a string value`);
       return invalidValue;
     }
-    if (
-      field !== undefined &&
-      normalizeNeedle(input.value, field, context.registry, context.captureNeedle) === ""
-    ) {
+    if (field !== undefined && normalizeNeedle(input.value, field, context.registry) === "") {
       addIssue(context, "empty-needle", valuePath, "needle is empty after normalization");
       return invalidValue;
     }
@@ -264,10 +263,7 @@ function validateValue<R, Name extends string>(
       continue;
     }
     tokens.push(token);
-    if (
-      field !== undefined &&
-      normalizeNeedle(token, field, context.registry, context.captureNeedle) === ""
-    ) {
+    if (field !== undefined && normalizeNeedle(token, field, context.registry) === "") {
       addIssue(
         context,
         "empty-needle",
@@ -301,11 +297,8 @@ function normalizeNeedle<R, Name extends string>(
   needle: string,
   field: Name,
   registry: FieldRegistry<R, Name>,
-  captureNeedle?: (needle: string) => void,
 ): string {
-  const normalized = registry.get(field)!.normalize(needle);
-  captureNeedle?.(normalized);
-  return normalized;
+  return registry.get(field)!.normalize(needle);
 }
 
 function rejectUnknownKeys<R, Name extends string>(
@@ -314,51 +307,12 @@ function rejectUnknownKeys<R, Name extends string>(
   path: Path,
   context: ValidationContext<R, Name>,
 ): void {
+  // Known grammar fields are judged before extras regardless of source order.
   for (const key of Object.getOwnPropertyNames(input)) {
     if (!allowed.has(key)) {
       addIssue(context, "invalid-shape", [...path, key], `unknown key ${JSON.stringify(key)}`);
     }
   }
-}
-
-function orderByDocumentPath(input: unknown, issues: readonly Issue[]): Issue[] {
-  return issues
-    .map((issue, index) => ({ issue, index }))
-    .sort((left, right) => {
-      const order = compareDocumentPaths(input, left.issue.path, right.issue.path);
-      return order === 0 ? left.index - right.index : order;
-    })
-    .map(({ issue }) => issue);
-}
-
-function compareDocumentPaths(input: unknown, left: Path, right: Path): number {
-  let parent = input;
-  const sharedLength = Math.min(left.length, right.length);
-
-  for (let index = 0; index < sharedLength; index += 1) {
-    const leftPart = left[index];
-    const rightPart = right[index];
-    if (leftPart !== rightPart) {
-      if (Array.isArray(parent) && typeof leftPart === "number" && typeof rightPart === "number") {
-        return leftPart - rightPart;
-      }
-      if (isObject(parent) && typeof leftPart === "string" && typeof rightPart === "string") {
-        const keys = Object.getOwnPropertyNames(parent);
-        const leftIndex = keys.indexOf(leftPart);
-        const rightIndex = keys.indexOf(rightPart);
-        if (leftIndex >= 0 && rightIndex >= 0) {
-          return leftIndex - rightIndex;
-        }
-      }
-      return 0;
-    }
-
-    if ((Array.isArray(parent) || isObject(parent)) && leftPart !== undefined) {
-      parent = parent[leftPart as keyof typeof parent];
-    }
-  }
-
-  return left.length - right.length;
 }
 
 function addIssue<R, Name extends string>(

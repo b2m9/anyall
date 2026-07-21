@@ -9,12 +9,7 @@ export function compileExpression<R, Name extends string>(
   expression: Expression<Name> | null,
   registry: FieldRegistry<R, Name>,
 ): (record: R) => boolean {
-  const normalizedNeedles: string[] = [];
-  // Validation already normalizes needles to reject empty ones; capturing that
-  // exact result avoids duplicate domain work at the compile boundary.
-  const result = validateExpression(expression, registry, (needle) => {
-    normalizedNeedles.push(needle);
-  });
+  const result = validateExpression(expression, registry);
   if (!result.ok) {
     throw new AnyallExpressionError("invalid filter expression", result.issues);
   }
@@ -22,13 +17,8 @@ export function compileExpression<R, Name extends string>(
     return () => true;
   }
 
-  let needleIndex = 0;
   const groups = result.expression.any.map((group) =>
-    group.all.map((predicate) => {
-      const compiled = compilePredicate(predicate, registry, normalizedNeedles, needleIndex);
-      needleIndex = compiled.nextNeedleIndex;
-      return compiled.matches;
-    }),
+    group.all.map((predicate) => compilePredicate(predicate, registry)),
   );
 
   return (record) => groups.some((group) => group.every((matches) => matches(record)));
@@ -54,53 +44,47 @@ export function filterRecords<R>(
 function compilePredicate<R, Name extends string>(
   predicate: Predicate<Name>,
   registry: FieldRegistry<R, Name>,
-  normalizedNeedles: readonly string[],
-  needleIndex: number,
-): { readonly matches: CompiledPredicate<R>; readonly nextNeedleIndex: number } {
+): CompiledPredicate<R> {
   const field = registry.get(predicate.field)!;
   let base: CompiledPredicate<R>;
 
+  // Each predicate owns its compiled needles; validation and compilation
+  // never depend on matching traversal positions.
   switch (predicate.operator) {
     case "empty":
       base = (record) => resolveTexts(field.get(record), field).length === 0;
       break;
     case "one-of": {
-      const needles = new Set(
-        normalizedNeedles.slice(needleIndex, needleIndex + predicate.value.length),
-      );
-      needleIndex += predicate.value.length;
+      const needles = new Set(predicate.value.map((needle) => field.normalize(needle)));
       base = (record) => resolveTexts(field.get(record), field).some((text) => needles.has(text));
       break;
     }
     case "equals": {
-      const needle = normalizedNeedles[needleIndex++]!;
+      const needle = field.normalize(predicate.value);
       base = (record) => resolveTexts(field.get(record), field).some((text) => text === needle);
       break;
     }
     case "contains": {
-      const needle = normalizedNeedles[needleIndex++]!;
+      const needle = field.normalize(predicate.value);
       base = (record) =>
         resolveTexts(field.get(record), field).some((text) => text.includes(needle));
       break;
     }
     case "starts-with": {
-      const needle = normalizedNeedles[needleIndex++]!;
+      const needle = field.normalize(predicate.value);
       base = (record) =>
         resolveTexts(field.get(record), field).some((text) => text.startsWith(needle));
       break;
     }
     case "ends-with": {
-      const needle = normalizedNeedles[needleIndex++]!;
+      const needle = field.normalize(predicate.value);
       base = (record) =>
         resolveTexts(field.get(record), field).some((text) => text.endsWith(needle));
       break;
     }
   }
 
-  return {
-    matches: predicate.not === true ? (record) => !base(record) : base,
-    nextNeedleIndex: needleIndex,
-  };
+  return predicate.not === true ? (record) => !base(record) : base;
 }
 
 function resolveTexts<R>(value: unknown, field: RegisteredField<R>): string[] {

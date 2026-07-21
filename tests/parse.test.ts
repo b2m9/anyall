@@ -93,14 +93,42 @@ describe("parse", () => {
     expect(Object.getPrototypeOf(result.expression.any[0]?.all)).toBe(Array.prototype);
   });
 
-  test("reports unknown keys where they occur in document order", () => {
-    expect(customers.parse({ extra: true, v: 2, any: [] })).toMatchObject({
+  test("reports an unsupported wire version without judging a foreign grammar", () => {
+    const result = customers.parse({ extra: true, v: 2, any: [] });
+
+    expect(result).toMatchObject({
       ok: false,
-      issues: [
-        { code: "invalid-shape", path: ["extra"] },
-        { code: "unsupported-version", path: ["v"] },
+      issues: [{ code: "unsupported-version", path: ["v"] }],
+    });
+    if (result.ok) expect.unreachable("expected an unsupported version");
+    expect(result.issues).toHaveLength(1);
+  });
+
+  test("reports reachable issues in grammar order, independent of object key order", () => {
+    for (const input of [
+      { extra: true, any: [] },
+      { any: [], extra: true },
+    ]) {
+      const result = customers.parse(input);
+      if (result.ok) expect.unreachable("expected invalid input");
+
+      expect(result.issues.map(({ code, path }) => ({ code, path }))).toEqual([
+        { code: "invalid-shape", path: ["v"] },
         { code: "empty-expression", path: ["any"] },
-      ],
+        { code: "invalid-shape", path: ["extra"] },
+      ]);
+    }
+  });
+
+  test("treats an undefined version as a missing required value", () => {
+    expect(
+      customers.parse({
+        v: undefined,
+        any: [{ all: [{ field: "name", operator: "empty" }] }],
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-shape", path: ["v"] }],
     });
   });
 
@@ -153,7 +181,7 @@ describe("parse", () => {
     expect(customers.parse(input)).toMatchObject({ ok: false, issues: [{ code, path }] });
   });
 
-  test("reports independent reachable issues in document order", () => {
+  test("reports independent reachable issues in grammar order", () => {
     const result = customers.parse({
       v: 1,
       any: [

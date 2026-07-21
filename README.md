@@ -153,7 +153,10 @@ latter as `JSON.stringify(null)`, which yields the JSON text `"null"`;
 returns fresh canonical plain objects while preserving needle text. Invalid
 JSON and ordinary invalid data become issues, provided the declared normalizers
 honor their pure-and-total contract; reflective exotica are outside that
-guarantee.
+guarantee. Issues follow grammar and array order rather than object key
+insertion order. Consumers should branch on `code` and `path`, not issue
+position or message text. An unsupported wire version is reported alone because
+the reader cannot safely judge the rest of a foreign grammar.
 
 ## API
 

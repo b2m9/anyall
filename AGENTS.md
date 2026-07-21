@@ -20,7 +20,8 @@ version-locked runner.
   confirm it fails for the intended reason, then implement only enough to pass.
 - Keep tests table-driven where the contract is a semantics matrix. Use
   property tests for laws such as round trips, purity, and reference identity.
-- Treat `code` and `path` in issues as stable API. Message wording is not.
+- Treat `code` and `path` in issues as stable API. Message wording and issue
+  position are not.
 
 ## Constraints to preserve
 
@@ -35,6 +36,8 @@ version-locked runner.
   empty groups are invalid rather than acquiring vacuous truth values.
 - **Validation has one source of truth.** `parse`, `compile`, and row conversion
   must not drift into subtly different definitions of a valid predicate.
+- **Foreign versions stop validation.** A reader cannot make useful claims
+  about a grammar it does not understand; report only `unsupported-version`.
 - **Segment before discarding rows.** An invalid row may be removed in
   interactive mode, but it must never alter the groups around it.
 - **Stored data stays data.** Parsing rebuilds fresh canonical plain objects;
