@@ -50,6 +50,7 @@ describe("fromRows", () => {
     ["an unknown operator", { field: "name", operator: "matches", value: "Ada" }],
     ["a number scalar value", { field: "name", operator: "equals", value: 42 }],
     ["a boolean scalar value", { field: "name", operator: "contains", value: true }],
+    ["an undefined scalar value", { field: "name", operator: "equals", value: undefined }],
     ["a post-normalization empty scalar", { field: "status", operator: "equals", value: " - " }],
     ["a value on empty", { field: "name", operator: "empty", value: "Ada" }],
     ["a scalar one-of value", { field: "name", operator: "one-of", value: "Ada" }],
@@ -147,14 +148,24 @@ describe("fromRows", () => {
     });
   });
 
-  test("requires an own not value to be boolean and ignores inherited flags", () => {
+  test("treats explicit undefined row state as absent", () => {
     expect(
-      customers.fromRows([{ field: "name", operator: "empty", not: undefined } as never]),
-    ).toMatchObject({
-      ok: false,
-      issues: [{ code: "incomplete-row", path: [0] }],
+      customers.fromRows([
+        {
+          join: undefined,
+          field: "name",
+          operator: "empty",
+          value: undefined,
+          not: undefined,
+        } as never,
+      ]),
+    ).toEqual({
+      ok: true,
+      expression: { v: 1, any: [{ all: [{ field: "name", operator: "empty" }] }] },
     });
+  });
 
+  test("ignores inherited negation flags", () => {
     const inherited = Object.assign(Object.create({ not: true }) as object, {
       field: "name",
       operator: "empty",
@@ -162,6 +173,13 @@ describe("fromRows", () => {
     expect(customers.fromRows([inherited])).toEqual({
       ok: true,
       expression: { v: 1, any: [{ all: [{ field: "name", operator: "empty" }] }] },
+    });
+  });
+
+  test("reports sparse rows instead of silently dropping holes", () => {
+    expect(customers.fromRows(Array<FilterRow>(1))).toEqual({
+      ok: false,
+      issues: [{ code: "incomplete-row", path: [0], message: "row must be an object" }],
     });
   });
 

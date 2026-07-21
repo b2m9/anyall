@@ -46,6 +46,8 @@ export function expressionFromRows<R, Name extends string>(
 
 function segmentRows(rows: readonly FilterRow[]): IndexedRow[][] {
   const slices: IndexedRow[][] = [[]];
+  // Materializing the sequence visits holes so sparse UI state is reported
+  // as incomplete instead of silently changing the authored filter.
   Array.from(rows).forEach((row, index) => {
     // Boundaries come from the authored sequence, so later discards cannot
     // silently move a predicate into a different boolean group.
@@ -68,7 +70,7 @@ function predicateFromRow<R, Name extends string>(
   if (row.join !== undefined && row.join !== "and" && row.join !== "or") {
     return { ok: false, message: 'join must be "and" or "or" when present' };
   }
-  if (Object.hasOwn(row, "not") && typeof row.not !== "boolean") {
+  if (Object.hasOwn(row, "not") && row.not !== undefined && typeof row.not !== "boolean") {
     return { ok: false, message: "not must be a boolean when present" };
   }
 
@@ -96,7 +98,7 @@ function copyOwn(
   target: Record<string, unknown>,
   key: "field" | "operator" | "value",
 ): void {
-  if (Object.hasOwn(source, key)) {
+  if (Object.hasOwn(source, key) && source[key] !== undefined) {
     target[key] = source[key];
   }
 }

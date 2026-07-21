@@ -132,6 +132,32 @@ describe("parse", () => {
     });
   });
 
+  test("treats undefined predicate properties as absent", () => {
+    expect(
+      customers.parse({
+        v: 1,
+        any: [
+          {
+            all: [{ field: "name", operator: "empty", value: undefined, not: undefined }],
+          },
+        ],
+      }),
+    ).toEqual({
+      ok: true,
+      expression: { v: 1, any: [{ all: [{ field: "name", operator: "empty" }] }] },
+    });
+
+    expect(
+      customers.parse({
+        v: 1,
+        any: [{ all: [{ field: "name", operator: "equals", value: undefined }] }],
+      }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ code: "invalid-value", path: ["any", 0, "all", 0, "value"] }],
+    });
+  });
+
   test("rejects non-enumerable unknown string keys", () => {
     const input = { v: 1, any: [{ all: [{ field: "name", operator: "empty" }] }] };
     Object.defineProperty(input, "extra", { value: true });

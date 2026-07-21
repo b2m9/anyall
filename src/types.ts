@@ -111,6 +111,7 @@ export interface Filter<R, Name extends string> {
   /**
    * Filters without reordering records. Returns the input array by reference
    * exactly when no record is excluded; invalid input throws as `compile` does.
+   * Validates and compiles on each call; reuse `compile` for repeated evaluation.
    */
   filter(records: readonly R[], expression: Expression<Name> | null): readonly R[];
 

@@ -44,6 +44,8 @@ version-locked runner.
   evaluation-time normalization never rewrites saved needles. Token arrays
   keep their order and duplicates; deduplication exists only in a compiled
   `one-of` set.
+- **Explicit `undefined` means absence.** Required properties still fail as
+  missing; successful canonical output omits optional undefined properties.
 - **Empty has one meaning.** A value is empty exactly when resolution yields no
   matchable texts. Every operator and its negation derive boundary behavior
   from that definition rather than special-casing cells.

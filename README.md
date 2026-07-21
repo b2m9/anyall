@@ -59,7 +59,7 @@ field names from the registry.
 
 Accessors make record projection visible and type-checked. A field can also
 define the text equivalence its domain needs; normalization always applies to
-both record text and the compiled needle:
+both record text and the compiled search text, or needle:
 
 ```ts
 const places = createFilter<{ city: string }>()({
@@ -175,6 +175,9 @@ filter.filter(records, expression); // readonly RecordType[]
 filter.parse(jsonOrValue);
 ```
 
+`filter` validates and compiles its expression on every call. When evaluating
+the same expression repeatedly, call `compile` once and reuse the predicate.
+
 `fromRows` and `parse` return one result shape:
 
 ```ts
@@ -238,7 +241,9 @@ Incomplete rows reject the whole conversion by default. For a live filter
 drawer, `{ incomplete: "discard" }` removes invalid rows after grouping, drops
 groups left empty, and returns `expression: null` if nothing survives. Row
 values stay strict: scalar operators require a string, and `one-of` requires a
-string array. Record values are the only values coerced to text.
+string array. An explicit `undefined` behaves like an omitted property; required
+properties remain invalid when omitted. Record values are the only values
+coerced to text.
 
 Expressions require at least one group and every group requires at least one
 predicate; empty containers are rejected rather than given vacuous meanings.

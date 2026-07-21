@@ -139,12 +139,7 @@ function validatePredicate<R, Name extends string>(
   const not = validateNot(input, path, context);
   rejectUnknownKeys(input, new Set(["field", "operator", "value", "not"]), path, context);
 
-  if (
-    field === undefined ||
-    operator === undefined ||
-    value === invalidValue ||
-    not === invalidNot
-  ) {
+  if (field === undefined || operator === undefined) {
     return undefined;
   }
   if (operator === "empty") {
@@ -206,52 +201,49 @@ function validateOperator<R, Name extends string>(
   return input.operator as Operator;
 }
 
-const invalidValue = Symbol("invalid value");
-
 function validateValue<R, Name extends string>(
   input: Record<string, unknown>,
   field: Name | undefined,
   operator: Operator | undefined,
   path: Path,
   context: ValidationContext<R, Name>,
-): string | readonly string[] | undefined | typeof invalidValue {
+): string | readonly string[] | undefined {
   if (operator === undefined) {
     return undefined;
   }
 
   const valuePath = [...path, "value"];
   if (operator === "empty") {
-    if (Object.hasOwn(input, "value")) {
+    if (Object.hasOwn(input, "value") && input.value !== undefined) {
       addIssue(context, "invalid-value", valuePath, "empty predicates do not accept a value");
-      return invalidValue;
     }
     return undefined;
   }
 
-  if (!Object.hasOwn(input, "value")) {
+  if (!Object.hasOwn(input, "value") || input.value === undefined) {
     addIssue(context, "invalid-value", valuePath, `${operator} requires a value`);
-    return invalidValue;
+    return undefined;
   }
 
   if (scalarOperators.has(operator)) {
     if (typeof input.value !== "string") {
       addIssue(context, "invalid-value", valuePath, `${operator} requires a string value`);
-      return invalidValue;
+      return undefined;
     }
     if (field !== undefined && normalizeNeedle(input.value, field, context.registry) === "") {
       addIssue(context, "empty-needle", valuePath, "needle is empty after normalization");
-      return invalidValue;
+      return undefined;
     }
     return input.value;
   }
 
   if (!Array.isArray(input.value)) {
     addIssue(context, "invalid-value", valuePath, "one-of requires an array of strings");
-    return invalidValue;
+    return undefined;
   }
   if (input.value.length === 0) {
     addIssue(context, "empty-needle", valuePath, "one-of requires at least one needle");
-    return invalidValue;
+    return undefined;
   }
 
   let valid = true;
@@ -273,22 +265,20 @@ function validateValue<R, Name extends string>(
       valid = false;
     }
   }
-  return valid ? tokens : invalidValue;
+  return valid ? tokens : undefined;
 }
-
-const invalidNot = Symbol("invalid not");
 
 function validateNot<R, Name extends string>(
   input: Record<string, unknown>,
   path: Path,
   context: ValidationContext<R, Name>,
-): true | undefined | typeof invalidNot {
+): true | undefined {
   if (!Object.hasOwn(input, "not") || input.not === undefined) {
     return undefined;
   }
   if (input.not !== true) {
     addIssue(context, "invalid-value", [...path, "not"], "not must be true when present");
-    return invalidNot;
+    return undefined;
   }
   return true;
 }
