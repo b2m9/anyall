@@ -1,0 +1,3 @@
+# Supply-chain cooldown: only install versions published at least 7 days ago,
+# giving compromised releases time to be caught and yanked (minutes).
+minimumReleaseAge: 10080
