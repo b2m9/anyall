@@ -1,0 +1,63 @@
+{
+  "name": "@b2m9/anyall",
+  "version": "0.1.0",
+  "description": "Build, store, and evaluate serializable DNF filters over declared record fields.",
+  "keywords": [
+    "boolean-expression",
+    "disjunctive-normal-form",
+    "dnf",
+    "filter",
+    "headless",
+    "predicate",
+    "saved-views",
+    "typescript"
+  ],
+  "homepage": "https://github.com/b2m9/anyall#readme",
+  "bugs": {
+    "url": "https://github.com/b2m9/anyall/issues"
+  },
+  "license": "MIT",
+  "author": "Bob Massarczyk <bob@b2m9.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/b2m9/anyall.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "typecheck:tests": "tsgo --noEmit -p tsconfig.test.json",
+    "check": "vp check && vp run typecheck:tests && vp test run && vp run check:package",
+    "check:package": "vp pack && publint && attw --pack --profile esm-only .",
+    "prepack": "vp run build"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.4",
+    "@types/node": "25.6.2",
+    "@typescript/native-preview": "7.0.0-dev.20260509.2",
+    "fast-check": "4.8.0",
+    "publint": "0.3.21",
+    "typescript": "6.0.3",
+    "vite-plus": "0.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.7.0"
+}
