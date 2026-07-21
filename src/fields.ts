@@ -43,23 +43,27 @@ function registerField<R>(name: string, definition: unknown): RegisteredField<R>
       throw invalidField(name, `has unknown key ${JSON.stringify(key)}`);
     }
   }
-  if (typeof candidate.get !== "function") {
+  // Accessor properties may be stateful, so validation and registration must
+  // observe the same callable.
+  const get = candidate.get;
+  const normalize = candidate.normalize;
+  if (typeof get !== "function") {
     throw invalidField(name, "get must be a function");
   }
-  if (candidate.normalize !== undefined && typeof candidate.normalize !== "function") {
+  if (normalize !== undefined && typeof normalize !== "function") {
     throw invalidField(name, "normalize must be a function when provided");
   }
 
-  const get = candidate.get as (record: R) => unknown;
-  if (candidate.normalize === undefined) {
-    return { get, normalize: defaultNormalize };
+  const registeredGet = get as (record: R) => unknown;
+  if (normalize === undefined) {
+    return { get: registeredGet, normalize: defaultNormalize };
   }
 
-  const normalize = candidate.normalize as (text: string) => unknown;
+  const registeredNormalize = normalize as (text: string) => unknown;
   return {
-    get,
+    get: registeredGet,
     normalize: (text) => {
-      const normalized = normalize(text);
+      const normalized = registeredNormalize(text);
       // A shared non-string result can make unrelated values compare equal or
       // fail later inside a string operator.
       if (typeof normalized !== "string") {

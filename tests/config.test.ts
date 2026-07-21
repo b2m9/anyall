@@ -63,6 +63,30 @@ describe("field configuration", () => {
     }
   });
 
+  test("snapshots accessor properties before validation and registration", () => {
+    let getReads = 0;
+    let normalizeReads = 0;
+    const definition = {
+      get get() {
+        getReads += 1;
+        return getReads === 1 ? (customer: Customer) => customer.name : undefined;
+      },
+      get normalize() {
+        normalizeReads += 1;
+        return normalizeReads === 1 ? (text: string) => text.trim().toLowerCase() : undefined;
+      },
+    };
+
+    const matches = configure({ name: definition } as never).compile({
+      v: 1,
+      any: [{ all: [{ field: "name", operator: "equals", value: "ada" }] }],
+    });
+
+    expect(matches({ name: " Ada " })).toBe(true);
+    expect(getReads).toBe(1);
+    expect(normalizeReads).toBe(1);
+  });
+
   test("rejects non-string normalizer results when they are observed", () => {
     const invalidNeedle = configure({
       name: {
