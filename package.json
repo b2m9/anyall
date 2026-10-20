@@ -54,7 +54,7 @@
     "fast-check": "4.8.0",
     "publint": "0.3.21",
     "typescript": "6.0.3",
-    "vite-plus": "0.2.4"
+    "vite-plus": "1.1.0"
   },
   "engines": {
     "node": ">=22"
